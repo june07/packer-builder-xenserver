@@ -88,7 +88,6 @@ func (self *stepCreateInstance) Run(state multistep.StateBag) multistep.StepActi
 		ui.Error(fmt.Sprintf("Unable to connect packer disk VDI: %s", err.Error()))
 		return multistep.ActionHalt
 	}
-
 	// Connect Network
 
 	var network *xsclient.Network

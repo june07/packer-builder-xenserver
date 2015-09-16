@@ -98,6 +98,14 @@ func (StepExport) Run(state multistep.StateBag) multistep.StepAction {
 		ui.Say("Skipping export")
 		return multistep.ActionContinue
 
+        case "template":
+		// convert VM to template
+		ui.Say("Converting VM to template")
+		instance.SetIsATemplate(true)
+		if err != nil {
+			ui.Error(fmt.Sprintf("Could not convert VM to template", err.Error()))
+			return multistep.ActionHalt
+		}
 	case "xva":
 		// export the VM
 
