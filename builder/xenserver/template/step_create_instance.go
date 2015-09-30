@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
@@ -72,67 +73,69 @@ func (self *stepCreateInstance) Run(state multistep.StateBag) multistep.StepActi
 
 	var network *xsclient.Network
 
-	if config.NetworkName == "" {
-		// No network has be specified. Use the management interface
-		network = new(xsclient.Network)
-		network.Ref = ""
-		network.Client = &client
+	for vif, networkName := range config.NetworkNames {
+		ui.Say(fmt.Sprintf("Creating VIF connected to: %s", networkName))
+		if networkName == "" {
+			// No network has be specified. Use the management interface
+			network = new(xsclient.Network)
+			network.Ref = ""
+			network.Client = &client
 
-		pifs, err := client.GetPIFs()
-
-		if err != nil {
-			ui.Error(fmt.Sprintf("Error getting PIFs: %s", err.Error()))
-			return multistep.ActionHalt
-		}
-
-		for _, pif := range pifs {
-			pif_rec, err := pif.GetRecord()
+			pifs, err := client.GetPIFs()
 
 			if err != nil {
-				ui.Error(fmt.Sprintf("Error getting PIF record: %s", err.Error()))
+				ui.Error(fmt.Sprintf("Error getting PIFs: %s", err.Error()))
 				return multistep.ActionHalt
 			}
 
-			if pif_rec["management"].(bool) {
-				network.Ref = pif_rec["network"].(string)
+			for _, pif := range pifs {
+				pif_rec, err := pif.GetRecord()
+
+				if err != nil {
+					ui.Error(fmt.Sprintf("Error getting PIF record: %s", err.Error()))
+					return multistep.ActionHalt
+				}
+
+				if pif_rec["management"].(bool) {
+					network.Ref = pif_rec["network"].(string)
+				}
+
 			}
 
+			if network.Ref == "" {
+				ui.Error("Error: couldn't find management network. Aborting.")
+				return multistep.ActionHalt
+			}
+
+		} else {
+			// Look up the network by it's name label
+
+			networks, err := client.GetNetworkByNameLabel(networkName)
+
+			if err != nil {
+				ui.Error(fmt.Sprintf("Error occured getting Network by name-label: %s", err.Error()))
+				return multistep.ActionHalt
+			}
+
+			switch {
+			case len(networks) == 0:
+				//ui.Error(fmt.Sprintf("Couldn't find a network with the specified name-label '%s'. Aborting.", config.NetworkName))
+				ui.Error(fmt.Sprintf("Couldn't find a network with the specified name-label '%s'. Aborting.", networkName))
+				return multistep.ActionHalt
+			case len(networks) > 1:
+				//ui.Error(fmt.Sprintf("Found more than one network with the name '%s'. The name must be unique. Aborting.", config.NetworkName))
+				ui.Error(fmt.Sprintf("Found more than one network with the name '%s'. The name must be unique. Aborting.", networkName))
+				return multistep.ActionHalt
+			}
+
+			network = networks[0]
 		}
 
-		if network.Ref == "" {
-			ui.Error("Error: couldn't find management network. Aborting.")
-			return multistep.ActionHalt
-		}
-
-	} else {
-		// Look up the network by it's name label
-
-		networks, err := client.GetNetworkByNameLabel(config.NetworkName)
+		_, err = instance.ConnectNetwork(network, strconv.Itoa(vif))
 
 		if err != nil {
-			ui.Error(fmt.Sprintf("Error occured getting Network by name-label: %s", err.Error()))
-			return multistep.ActionHalt
+			ui.Say(fmt.Sprintf("%s", err.Error()))
 		}
-
-		switch {
-		case len(networks) == 0:
-			ui.Error(fmt.Sprintf("Couldn't find a network with the specified name-label '%s'. Aborting.", config.NetworkName))
-			return multistep.ActionHalt
-		case len(networks) > 1:
-			ui.Error(fmt.Sprintf("Found more than one network with the name '%s'. The name must be unique. Aborting.", config.NetworkName))
-			return multistep.ActionHalt
-		}
-
-		network = networks[0]
-	}
-
-	if err != nil {
-		ui.Say(err.Error())
-	}
-	_, err = instance.ConnectNetwork(network, "0")
-
-	if err != nil {
-		ui.Say(err.Error())
 	}
 
 	instanceId, err := instance.GetUuid()

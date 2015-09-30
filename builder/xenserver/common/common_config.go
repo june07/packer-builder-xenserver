@@ -23,6 +23,7 @@ type CommonConfig struct {
 	SrName        string   `mapstructure:"sr_name"`
 	FloppyFiles   []string `mapstructure:"floppy_files"`
 	NetworkName   string   `mapstructure:"network_name"`
+	NetworkNames  []string   `mapstructure:"network_names"`
 
 	HostPortMin uint `mapstructure:"host_port_min"`
 	HostPortMax uint `mapstructure:"host_port_max"`
@@ -54,6 +55,10 @@ type CommonConfig struct {
 	Format    string `mapstructure:"format"`
 	KeepVM    string `mapstructure:"keep_vm"`
 	IPGetter  string `mapstructure:"ip_getter"`
+
+	AnsibleHostVarsDir	string `mapstructure:"ansible_host_vars_dir"`
+	AnsibleHostVarsCfgDir	string `mapstructure:"ansible_host_vars_cfg_dir"`
+	AnsibleHostVarsMacDir	string `mapstructure:"ansible_host_vars_mac_dir"`
 }
 
 func (c *CommonConfig) Prepare(ctx *interpolate.Context, pc *common.PackerConfig) []error {
